@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Flex Software</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 
   <!-- Bootstrap 5 -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -36,8 +36,11 @@
       --font:        'Plus Jakarta Sans', sans-serif;
       --sidebar-w:   300px;
       --header-h:    58px;
+      --mob-nav-h:   0px;   /* set by JS on mobile */
+      --footer-h:    64px;
       --radius:      14px;
       --trans:       .18s ease;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
     }
     [data-bs-theme="dark"] {
       --brand:       #fafafa;
@@ -56,14 +59,21 @@
        RESET / BASE
     ═══════════════════════════════════════ */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body {
+    html {
+      height: -webkit-fill-available;
       height: 100%;
+    }
+    body {
+      height: 100%;
+      min-height: -webkit-fill-available;
       font-family: var(--font);
       background: var(--bg);
       color: var(--text);
       overflow: hidden;
       -webkit-font-smoothing: antialiased;
       font-size: 14px;
+      /* Prevent rubber-band scroll on iOS */
+      overscroll-behavior: none;
     }
 
     /* ═══════════════════════════════════════
@@ -120,9 +130,46 @@
     .swal2-backdrop-show { background: rgba(0,0,0,.45) !important; backdrop-filter: blur(4px) !important; }
 
     /* ═══════════════════════════════════════
+       MOBILE TOP NAV — hidden on desktop
+    ═══════════════════════════════════════ */
+    #mob-nav {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 54px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      align-items: center;
+      padding: 0 12px;
+      gap: 10px;
+      z-index: 60;
+      /* Safe area for notch phones */
+      padding-top: env(safe-area-inset-top, 0px);
+    }
+    #mob-nav .mob-brand {
+      font-size: 15px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--text);
+      flex: 1;
+    }
+    #mob-nav .mob-brand span {
+      width: 7px; height: 7px;
+      background: var(--online);
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    /* ═══════════════════════════════════════
        LAYOUT
     ═══════════════════════════════════════ */
-    #app { display: flex; height: 100vh; overflow: hidden; }
+    #app {
+      display: flex;
+      height: 100%;
+      overflow: hidden;
+    }
 
     /* ═══════════════════════════════════════
        SIDEBAR
@@ -224,7 +271,7 @@
     #search-user::placeholder { color: var(--muted); }
 
     /* List */
-    #chat-list { flex: 1; overflow-y: auto; overscroll-behavior: contain; }
+    #chat-list { flex: 1; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
     #chat-list::-webkit-scrollbar { width: 3px; }
     #chat-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
@@ -328,6 +375,8 @@
       align-items: center;
       gap: 10px;
       flex-shrink: 0;
+      /* safe area for home bar */
+      padding-bottom: max(12px, calc(12px + env(safe-area-inset-bottom, 0px)));
     }
     .sb-foot-info { flex: 1; min-width: 0; }
     .sb-foot-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -336,7 +385,16 @@
     /* ═══════════════════════════════════════
        MAIN
     ═══════════════════════════════════════ */
-    #main { flex: 1; display: flex; flex-direction: column; min-width: 0; height: 100%; background: var(--bg); }
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      height: 100%;
+      background: var(--bg);
+      /* no overflow hidden here so footer can be positioned correctly */
+      overflow: hidden;
+    }
 
     /* Header */
     #chat-header {
@@ -357,10 +415,13 @@
     #chat-messages {
       flex: 1;
       overflow-y: auto;
-      padding: 20px 18px;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-y: contain;
+      padding: 20px 18px 20px;
       display: flex;
       flex-direction: column;
       gap: 2px;
+      /* Bottom padding is set dynamically by JS to stay above the footer */
     }
     #chat-messages::-webkit-scrollbar { width: 3px; }
     #chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -380,7 +441,6 @@
     }
     .me   .bubble { background: var(--bubble-me);   color: var(--bg);   border-radius: 16px 16px 4px 16px; }
     .them .bubble { background: var(--bubble-them); color: var(--text); border-radius: 16px 16px 16px 4px; }
-
     [data-bs-theme="dark"] .me .bubble { color: #09090b; }
 
     .reply-preview-bubble {
@@ -452,14 +512,20 @@
 
     /* ═══════════════════════════════════════
        FOOTER / INPUT
+       On mobile: sticky at the bottom, rises
+       with the keyboard via JS + visualViewport
     ═══════════════════════════════════════ */
     #chat-footer {
       background: var(--surface);
       border-top: 1px solid var(--border);
       padding: 10px 14px;
+      padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
       flex-shrink: 0;
       position: relative;
+      z-index: 20;
+      /* desktop: part of flex flow, no position needed */
     }
+
     #reply-bar {
       display: none;
       align-items: center;
@@ -474,6 +540,7 @@
     }
     #reply-bar.show { display: flex; }
     #reply-bar span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
     .input-row { display: flex; align-items: flex-end; gap: 8px; }
     #msg-input {
       flex: 1;
@@ -482,13 +549,15 @@
       border-radius: 22px;
       padding: 9px 16px;
       font-family: var(--font);
-      font-size: 14px;
+      font-size: 16px; /* 16px prevents iOS zoom on focus */
       color: var(--text);
       outline: none;
       resize: none;
       max-height: 120px;
       line-height: 1.5;
       transition: border-color var(--trans);
+      /* Prevent tap highlight on mobile */
+      -webkit-tap-highlight-color: transparent;
     }
     #msg-input:focus { border-color: var(--muted); }
     #msg-input::placeholder { color: var(--muted); }
@@ -496,7 +565,8 @@
     /* Emoji panel */
     #emoji-panel {
       position: absolute;
-      bottom: 64px; left: 14px;
+      bottom: 100%;
+      left: 14px;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
@@ -507,6 +577,7 @@
       max-width: 232px;
       z-index: 30;
       box-shadow: 0 8px 28px rgba(0,0,0,.1);
+      margin-bottom: 4px;
     }
     #emoji-panel.open { display: flex; }
     .ep-btn {
@@ -533,6 +604,9 @@
       font-size: 15px;
       padding: 0;
       transition: all var(--trans);
+      /* Better tap targets on mobile */
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
     }
     .ib:hover { background: var(--border); color: var(--text); }
     .ib.dark-bg { background: var(--text); border-color: var(--text); color: var(--bg); }
@@ -596,36 +670,96 @@
     #sb-overlay.show { display: block; }
 
     /* ═══════════════════════════════════════
-       RESPONSIVE
+       RESPONSIVE — MOBILE
+       Key fixes:
+       1. No Bootstrap navbar (use our own #mob-nav)
+       2. #chat-footer uses sticky + transform for keyboard
+       3. #chat-messages has dynamic padding-bottom via JS
+       4. #app fills remaining height below mob-nav
+       5. 16px font on input prevents iOS auto-zoom
     ═══════════════════════════════════════ */
     @media (max-width: 767.98px) {
+      #mob-nav { display: flex; }
+
+      /* Push app below the mobile nav */
+      #app {
+        position: fixed;
+        top: 54px;
+        left: 0; right: 0; bottom: 0;
+      }
+
+      /* Sidebar slides in as overlay */
       #sidebar {
-        position: fixed; top: 0; left: 0; bottom: 0;
+        position: fixed;
+        top: 54px; bottom: 0;
+        left: 0;
+        height: auto;
         transform: translateX(-100%);
+        z-index: 50;
       }
       #sidebar.show {
         transform: translateX(0);
-        box-shadow: 8px 0 40px rgba(0,0,0,.12);
+        box-shadow: 8px 0 40px rgba(0,0,0,.15);
       }
-      #menu-btn { display: inline-flex !important; }
-      .bubble { max-width: 84%; }
-      #chat-messages { padding: 14px 12px 80px 12px; /* extra bottom padding for footer */ }
+
+      /* Chat view fills all space */
+      #chat-view {
+        display: none;
+        flex-direction: column;
+        height: 100%;
+        width: 100%;
+        position: relative;
+      }
+      #chat-view.active { display: flex; }
+
+      #chat-header {
+        flex-shrink: 0;
+        position: relative;
+        z-index: 10;
+      }
+
+      /* Messages scroll area — padding-bottom set by JS */
+      #chat-messages {
+        flex: 1;
+        min-height: 0;
+        padding: 14px 12px 14px;
+      }
+
+      /* Footer: sticky at the bottom of the flex column */
       #chat-footer {
+        flex-shrink: 0;
+        position: relative;
         padding: 8px 10px;
-        position: fixed;
-        left: 0; right: 0; bottom: 0;
-        z-index: 100;
-        max-width: 100vw;
-        border-radius: 0;
+        padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+        /* will be translated up by JS when keyboard opens */
+        transition: transform 0.0s; /* instant, JS handles timing */
       }
-      #main { padding-bottom: 64px; }
-      #chat-view { min-height: 100vh; }
-      .input-row { gap: 4px; }
-      #msg-input { font-size: 15px; min-height: 38px; max-height: 80px; padding: 8px 10px; }
-      .ib { width: 32px; height: 32px; font-size: 15px; }
-      .ib.sm { width: 26px; height: 26px; font-size: 12px; }
+
+      .bubble { max-width: 84%; }
+      .input-row { gap: 6px; }
+      #msg-input {
+        font-size: 16px; /* CRITICAL: prevents iOS zoom */
+        min-height: 38px;
+        max-height: 80px;
+        padding: 8px 12px;
+        border-radius: 20px;
+      }
+      .ib { width: 36px; height: 36px; font-size: 16px; }
+      .ib.sm { width: 28px; height: 28px; font-size: 13px; }
+
+      #empty-state { padding: 40px 20px; }
+
+      /* Emoji panel opens upward */
+      #emoji-panel {
+        left: 10px;
+        max-width: calc(100vw - 20px);
+      }
     }
-    @media (min-width: 768px) { #menu-btn { display: none !important; } }
+
+    @media (min-width: 768px) {
+      #mob-nav { display: none !important; }
+      #menu-btn { display: none !important; }
+    }
     @media (max-width: 575.98px) { .login-card { padding: 36px 24px; } }
 
     /* ═══════════════════════════════════════
@@ -676,7 +810,7 @@
     }
     .btn-ghost:hover { background: var(--border); color: var(--text); }
 
-    /* Chat view */
+    /* Chat view — default (desktop) */
     #chat-view { display: none; flex-direction: column; height: 100%; flex: 1; min-height: 0; }
     #chat-view.active { display: flex; }
 
@@ -685,16 +819,16 @@
 </head>
 <body>
 
-  <!-- Bootstrap Navbar for mobile -->
-  <nav class="navbar navbar-light bg-white d-md-none px-2" style="height:58px;box-shadow:0 1px 3px rgba(0,0,0,0.04);z-index:50;">
-    <button class="navbar-toggler" type="button" id="bs-burger" aria-label="Toggle sidebar">
-      <span class="navbar-toggler-icon"></span>
+  <!-- Mobile Top Nav (replaces Bootstrap navbar — no conflicts) -->
+  <div id="mob-nav">
+    <button class="ib sm" id="mob-burger" aria-label="Open menu">
+      <i class="bi bi-list" style="font-size:17px;"></i>
     </button>
-    <span class="navbar-brand mb-0 h1 d-flex align-items-center gap-2" style="font-size:16px;font-weight:700;">
-      <span style="width:7px;height:7px;background:#22c55e;border-radius:50%;display:inline-block;"></span>
-      Flex Software
-    </span>
-  </nav>
+    <div class="mob-brand">
+      <span></span>Flex Software
+    </div>
+    <button class="ib sm" id="mob-theme" title="Theme"><i class="bi bi-moon" id="mob-theme-ic"></i></button>
+  </div>
 
   <div id="app">
 
@@ -702,7 +836,7 @@
   <div id="login-screen">
     <div class="login-card">
       <div style="font-size:28px;margin-bottom:18px;">💬</div>
-      <h1> Flex Software</h1>
+      <h1>Flex Software</h1>
       <p>Sign in to start messaging</p>
       <button class="google-btn" id="google-login">
         <svg width="17" height="17" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
@@ -716,13 +850,13 @@
   <!-- ════════ SIDEBAR ════════ -->
   <div id="sidebar">
     <div class="sb-head">
-      <div class="logo d-none d-md-flex">
+      <div class="logo">
         <div class="logo-dot"></div>
         Flex Software
       </div>
       <div class="d-flex gap-1">
         <button class="ib sm" id="btn-new-group" title="New group"><i class="bi bi-people"></i></button>
-        <button class="ib sm" id="btn-dark"       title="Theme"><i class="bi bi-moon" id="theme-ic"></i></button>
+        <button class="ib sm d-none d-md-inline-flex" id="btn-dark" title="Theme"><i class="bi bi-moon" id="theme-ic"></i></button>
       </div>
     </div>
 
@@ -736,7 +870,7 @@
     <div class="sb-search">
       <div class="sb-search-inner">
         <i class="bi bi-search"></i>
-        <input id="search-user" type="text" placeholder="Search…">
+        <input id="search-user" type="text" placeholder="Search…" autocomplete="off">
       </div>
     </div>
 
@@ -766,7 +900,7 @@
 
     <div id="chat-view">
       <div id="chat-header">
-        <button class="ib sm d-md-none" id="menu-btn"><i class="bi bi-list"></i></button>
+        <button class="ib sm d-md-none" id="menu-btn"><i class="bi bi-arrow-left"></i></button>
         <div class="ava-wrap">
           <img id="ch-ava" class="ava ava-sm" src="" alt="">
           <div class="online-dot" id="ch-dot" style="display:none;width:9px;height:9px;border-width:1.5px;"></div>
@@ -824,35 +958,96 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
 <script>
-// Burger menu for mobile sidebar
-const burger = document.getElementById('bs-burger');
-const sidebar = document.getElementById('sidebar');
+/* ═══════════════════════════════════
+   MOBILE KEYBOARD HANDLING
+   Uses visualViewport API to move the
+   chat footer up when the keyboard opens,
+   keeping it always visible above the keyboard.
+   Falls back gracefully on older browsers.
+═══════════════════════════════════ */
+(function setupKeyboardHandler() {
+  const isMobile = () => window.innerWidth < 768;
+  const footer   = document.getElementById('chat-footer');
+  const messages = document.getElementById('chat-messages');
+
+  function adjustForKeyboard() {
+    if (!isMobile() || !footer) return;
+
+    const vv          = window.visualViewport;
+    const windowH     = window.innerHeight;
+    // How much the keyboard has pushed the viewport up
+    const keyboardH   = vv ? (windowH - vv.height - vv.offsetTop) : 0;
+    const safeOffset  = Math.max(0, keyboardH);
+
+    // Move footer above keyboard
+    footer.style.transform  = safeOffset > 0 ? `translateY(-${safeOffset}px)` : '';
+    footer.style.transition = safeOffset > 0 ? 'transform 0.12s ease-out' : 'transform 0.18s ease-in';
+
+    // Give messages room so last message isn't hidden behind the footer
+    const footerH = footer.offsetHeight;
+    messages.style.paddingBottom = (footerH + safeOffset + 12) + 'px';
+
+    // Scroll to bottom if user was already at the bottom
+    if (messages.scrollHeight - messages.scrollTop - messages.clientHeight < 80) {
+      messages.scrollTop = messages.scrollHeight;
+    }
+  }
+
+  function resetKeyboard() {
+    if (!footer || !messages) return;
+    footer.style.transform    = '';
+    footer.style.transition   = 'transform 0.18s ease-in';
+    messages.style.paddingBottom = '';
+  }
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', adjustForKeyboard);
+    window.visualViewport.addEventListener('scroll', adjustForKeyboard);
+  }
+
+  // Also listen on input focus/blur as a fallback
+  document.addEventListener('focusin',  e => {
+    if (e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT')) {
+      setTimeout(adjustForKeyboard, 100);
+      setTimeout(adjustForKeyboard, 300); // double-check after keyboard animation
+    }
+  });
+  document.addEventListener('focusout', e => {
+    if (e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT')) {
+      setTimeout(resetKeyboard, 100);
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    if (isMobile()) adjustForKeyboard();
+    else resetKeyboard();
+  });
+})();
+
+/* ═══════════════════════════════════
+   MOBILE SIDEBAR (unified)
+═══════════════════════════════════ */
+const sidebar   = document.getElementById('sidebar');
 const sbOverlay = document.getElementById('sb-overlay');
-if (burger) {
-  burger.addEventListener('click', () => {
-    sidebar.classList.add('show');
-    sbOverlay.classList.add('show');
-  });
+
+function showSidebar() {
+  sidebar.classList.add('show');
+  sbOverlay.classList.add('show');
 }
-if (sbOverlay) {
-  sbOverlay.addEventListener('click', () => {
-    sidebar.classList.remove('show');
-    sbOverlay.classList.remove('show');
-  });
-}
-const menuBtn = document.getElementById('menu-btn');
-if (menuBtn) {
-  menuBtn.addEventListener('click', () => {
-    sidebar.classList.add('show');
-    sbOverlay.classList.add('show');
-  });
-}
-// Hide sidebar on navigation (mobile)
-function hideSidebarMobile() {
+function hideSidebar() {
   sidebar.classList.remove('show');
   sbOverlay.classList.remove('show');
 }
-// Example: call hideSidebarMobile() after chat selection, etc.
+
+document.getElementById('mob-burger').addEventListener('click', showSidebar);
+document.getElementById('menu-btn').addEventListener('click', showSidebar);
+sbOverlay.addEventListener('click', hideSidebar);
+
+/* ═══════════════════════════════════
+   MOBILE THEME BUTTON
+═══════════════════════════════════ */
+document.getElementById('mob-theme').onclick = () => applyTheme(!isDark);
+
 /* ═══════════════════════════════════
    FIREBASE
 ═══════════════════════════════════ */
@@ -908,7 +1103,9 @@ function avatar(url, name) {
   return url || `https://ui-avatars.com/api/?name=${encodeURIComponent(name||'?')}&background=18181b&color=fafafa&size=80`;
 }
 function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
-function scrollBottom() { setTimeout(() => { messagesEl.scrollTop = messagesEl.scrollHeight; }, 60); }
+function scrollBottom() {
+  setTimeout(() => { messagesEl.scrollTop = messagesEl.scrollHeight; }, 60);
+}
 
 /* ═══════════════════════════════════
    SWEETALERT HELPERS
@@ -919,14 +1116,8 @@ function swalTheme() {
     color:      getComputedStyle(document.documentElement).getPropertyValue('--text').trim()    || '#18181b',
   };
 }
-
 function swalSuccess(title, text = '', timer = 2000) {
-  return Swal.fire({
-    icon: 'success', title, text,
-    timer, timerProgressBar: true,
-    showConfirmButton: false,
-    ...swalTheme()
-  });
+  return Swal.fire({ icon: 'success', title, text, timer, timerProgressBar: true, showConfirmButton: false, ...swalTheme() });
 }
 function swalError(title, text = '') {
   return Swal.fire({ icon: 'error', title, text, confirmButtonText: 'OK', ...swalTheme() });
@@ -949,11 +1140,14 @@ function swalInfo(title, text = '') {
 /* ═══════════════════════════════════
    THEME
 ═══════════════════════════════════ */
-  function applyTheme(dark) {
+function applyTheme(dark) {
   isDark = dark;
   document.documentElement.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
   localStorage.setItem('pulse-dark', dark ? '1' : '0');
-  $('theme-ic').className = dark ? 'bi bi-sun' : 'bi bi-moon';
+  // Update both theme buttons (desktop + mobile)
+  const ic = dark ? 'bi bi-sun' : 'bi bi-moon';
+  $('theme-ic').className     = ic;
+  $('mob-theme-ic').className = ic;
 }
 applyTheme(isDark);
 $('btn-dark').onclick = () => applyTheme(!isDark);
@@ -984,14 +1178,13 @@ auth.onAuthStateChanged(async user => {
 $('google-login').onclick = async () => {
   try {
     await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
-    // success handled in onAuthStateChanged
   } catch (e) {
     swalError('Sign-in failed', e.message);
   }
 };
 
 $('btn-logout').onclick = async () => {
-  const res = await swalConfirm('Sign out?', 'You will be logged out of Pulse Chat.', 'Sign out');
+  const res = await swalConfirm('Sign out?', 'You will be logged out.', 'Sign out');
   if (!res.isConfirmed) return;
   await setOffline();
   await auth.signOut();
@@ -1241,10 +1434,8 @@ async function openChat(chatId) {
   renderSidebar($('search-user').value.trim());
   loadMessages();
 
-  if (window.innerWidth < 768) {
-    $('sidebar').classList.remove('show');
-    $('sb-overlay').classList.remove('show');
-  }
+  // Hide sidebar on mobile after chat selection
+  hideSidebar();
 }
 
 /* ═══════════════════════════════════
@@ -1334,7 +1525,7 @@ function renderMessages(msgs) {
     };
   });
 
-  // Delete — SweetAlert confirmation
+  // Delete
   messagesEl.querySelectorAll('.btn-del').forEach(btn => {
     btn.onclick = async () => {
       const res = await swalConfirm('Delete message?', 'This cannot be undone.', 'Delete', true);
@@ -1489,7 +1680,7 @@ $('btn-new-group').onclick = () => {
 $('create-group').onclick = async () => {
   const name    = $('group-name').value.trim();
   const members = [...$('group-users').querySelectorAll('input:checked')].map(i => i.value);
-  if (!name)         return swalInfo('Missing name', 'Please enter a group name.');
+  if (!name)           return swalInfo('Missing name', 'Please enter a group name.');
   if (!members.length) return swalInfo('No members', 'Select at least one person to add.');
   members.push(me.uid);
   const ref = await db.collection('chats').add({
@@ -1503,18 +1694,6 @@ $('create-group').onclick = async () => {
   await new Promise(r => setTimeout(r, 400));
   await swalSuccess(`"${name}" created!`, '', 1500);
   openChat(ref.id);
-};
-
-/* ═══════════════════════════════════
-   MOBILE SIDEBAR
-═══════════════════════════════════ */
-$('menu-btn').onclick = () => {
-  $('sidebar').classList.toggle('show');
-  $('sb-overlay').classList.toggle('show');
-};
-$('sb-overlay').onclick = () => {
-  $('sidebar').classList.remove('show');
-  $('sb-overlay').classList.remove('show');
 };
 
 /* ═══════════════════════════════════
